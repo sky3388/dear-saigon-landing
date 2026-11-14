@@ -7,6 +7,8 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231C4834'/%3E%3Ctext x='16' y='23' font-family='Georgia,serif' font-size='17' font-weight='bold' fill='%23F4F1E9' text-anchor='middle'%3EDS%3C/text%3E%3C/svg%3E" />
 <meta name="theme-color" content="#1C4834" />
 <meta name="robots" content="index,follow" />
+<meta name="referrer" content="strict-origin-when-cross-origin" />
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self'; connect-src 'none'; font-src 'self' https://fonts.gstatic.com; object-src 'none'; base-uri 'self'; form-action 'none'" />
 <meta name="description" content="Dear Saigon Burlington — Vietnamese noodle bar on Fairview St. Native menu, hours, phone and directions. Visit us. Closed Mondays." />
 <meta name="keywords" content="vietnamese food burlington, pho burlington, dear saigon, vietnamese noodle bar, pho pickup burlington" />
 <link rel="canonical" href="https://skywalker8888.github.io/dear-saigon-landing/" />
@@ -76,7 +78,7 @@
     </div>
   </header>
 
-  <main id="main">
+  <main id="main" tabindex="-1">
     <section class="hero" id="top">
       <div class="wrap hero-grid">
         <div class="hero-copy">
@@ -84,8 +86,8 @@
           <h1>A little Saigon,<br /><span class="em">close to home.</span></h1>
           <p class="tagline">Fresh pho, grilled plates and hand-rolled classics — a family noodle bar on Fairview Street.</p>
           <div class="hero-status">
-            <span class="status-pill" data-hours-pill role="status" aria-live="polite">
-              <span class="dot-live" aria-hidden="true"></span><span class="status-text">Checking hours…</span>
+            <span class="status-pill is-schedule">
+              <span class="dot-live" aria-hidden="true"></span><span>Regular weekly hours are shown below</span>
             </span>
           </div>
           <div class="hero-cta">
@@ -96,7 +98,7 @@
           <p class="trust">
             <span>Dine-in &amp; takeout</span><span class="dot" aria-hidden="true"></span>
             <span>Fairview St, Burlington</span><span class="dot" aria-hidden="true"></span>
-            <span>Call to order</span>
+            <span>Online ordering is not enabled on this page.</span>
           </p>
         </div>
         <div class="hero-media">
@@ -149,7 +151,7 @@
         <div class="hl reveal">
           <span class="ic" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg></span>
           <div>
-            <h3>Call to order</h3>
+            <h3>Call the restaurant</h3>
             <p>Phone us for pickup timing. Staff confirm availability and the final total.</p>
           </div>
         </div>
@@ -280,8 +282,8 @@
               <div>
                 <span class="lbl">Hours</span>
                 <div class="val">Closed Mon · Tue–Thu 11am–9pm · Fri–Sat 11am–10pm · Sun 11am–9pm</div>
-                <span class="status-pill" data-hours-pill role="status" aria-live="polite" style="margin-top:.6rem">
-                  <span class="dot-live" aria-hidden="true"></span><span class="status-text">Checking hours…</span>
+                <span class="status-pill is-schedule" style="margin-top:.6rem">
+                  <span class="dot-live" aria-hidden="true"></span><span>Regular schedule · holiday hours may differ</span>
                 </span>
               </div>
             </div>
@@ -289,11 +291,11 @@
               <span class="ic" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.3 1.8.6 2.6a2 2 0 0 1-.5 2.1L8 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.5 2.6.6a2 2 0 0 1 1.7 2Z"/></svg></span>
               <div>
                 <span class="lbl">Phone</span>
-                <div class="val"><a href="tel:+19056338388">(905) 633-8388</a></div>
+                <div class="val"><a class="info-phone-link" href="tel:+19056338388">(905) 633-8388</a></div>
               </div>
             </div>
           </div>
-          <p class="info-note">Visit · call for pickup timing. Staff confirm availability. This site does not take payments.</p>
+          <p class="info-note">Call the restaurant to confirm current takeout availability. Direct online ordering is not enabled on this page. Staff confirm availability. This site does not take payments.</p>
         </div>
         <aside class="info-card reveal">
           <span class="kicker">Find us on Google</span>
