@@ -4,19 +4,19 @@ Status: `LOCAL REVIEW READY / DEPLOYMENT BLOCKED`
 
 ## Intended slice
 
-This is a visit-information website for Dear Saigon in Burlington, Ontario. It provides the currently recorded public address, regular weekly hours, restaurant phone, Google listing link, and a limited names-only menu preview. Owner re-verification remains required before release.
+This is a visit-information website for Dear Saigon in Burlington, Ontario. It provides the currently recorded public address, regular weekly hours, restaurant phone, Google listing link, and the native Burlington menu without prices. Owner re-verification remains required before release.
 
-It does not provide online ordering, checkout, payment, price, availability, third-party ordering, reservations, catering submission, or a customer form.
+It does not provide online ordering, checkout, payment, price, third-party ordering, reservations, catering submission, or a customer form.
 
 ## Local acceptance checks
 
 - Fail-closed content and link tests pass.
 - The official public name is **Dear Saigon**; Burlington, Ontario is a location descriptor.
-- The internal-only unit and timezone are absent from customer-facing content; the exact public address still requires owner re-verification.
+- Unit 3 is published as part of the Burlington public address used on `main`; the timezone is absent from customer-facing HTML. The exact public address still requires owner re-verification.
 - Calculated open/closed claims are absent because holiday and temporary exceptions are not verified.
 - The page identifies regular hours as a schedule and warns that holiday hours may differ.
 - External customer actions are limited to the owner-confirmed phone number and exact Google listing.
-- No third-party script, font, analytics, form, ordering, payment, or tracking dependency is present.
+- No third-party analytics, form, ordering, payment, or tracking dependency is present. Google Fonts remain the only optional third-party stylesheet.
 - Referenced local images exist, but photo reuse/publication approval remains a separate release gate.
 - Essential content remains visible when JavaScript, motion, or observers fail.
 

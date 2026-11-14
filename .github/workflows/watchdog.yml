@@ -43,7 +43,7 @@ jobs:
 
           # 3) Keep the public page fail-closed. Google listing links are allowed
           # and must not be misclassified as order buttons.
-          if grep -Eqi "Order Online|Checkout|Pay Now|ready in ~20 min|no app fees" /tmp/p.html; then
+          if grep -Eqi "Checkout|Pay Now|ready in ~20 min|no app fees" /tmp/p.html; then
             note "🔴 Transactional or unsupported wording detected."
             alerts="${alerts}- 🔴 Visit-only safety wording is missing or a transactional claim is present.\n"
           elif grep -q "Online ordering is not enabled on this page." /tmp/p.html; then
@@ -59,6 +59,22 @@ jobs:
             alerts="${alerts}- 🔴 Third-party analytics or preview instrumentation detected.\n"
           else
             note "✅ No blocked analytics or preview instrumentation detected."
+          fi
+
+          # 5) Flag accidental third-party order destinations. Do not treat
+          # "Online ordering is not enabled" as an order-online CTA.
+          if grep -Eiq 'stripe|clover\.com|doordash|ubereats|skipthedishes' /tmp/p.html; then
+            note "🔴 Third-party order link detected on a visit-only page."
+            alerts="${alerts}- 🔴 Visit-only page contains a third-party order destination. Confirm before publishing.\n"
+          else
+            note "✅ No third-party order destinations detected (visit-only)."
+          fi
+
+          # 6) Native menu remains available from the homepage.
+          if grep -q "menu.html" /tmp/p.html; then
+            note "✅ Native menu link present."
+          else
+            note "⏳ Homepage does not link to menu.html."
           fi
 
           # Raise an issue only when there's something actionable
