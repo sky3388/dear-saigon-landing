@@ -1,0 +1,11 @@
+.playwright-cli/
+.playwright-mcp/
+output/playwright/
+__pycache__/
+*.py[cod]
+*.pyc
+.DS_Store
+/homepage*.png
+/menu_*.png
+/*-snapshot.yml
+/menu_desktop.yml
