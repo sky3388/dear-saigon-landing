@@ -9,18 +9,23 @@ ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
 CSS = (ROOT / "css" / "site.css").read_text(encoding="utf-8")
 WATCHDOG = (ROOT / ".github" / "workflows" / "watchdog.yml").read_text(encoding="utf-8")
+VERCEL = json.loads((ROOT / "vercel.json").read_text(encoding="utf-8"))
 
 
 class LinkParser(HTMLParser):
     def __init__(self):
         super().__init__()
         self.links = []
+        self.anchors = []
         self._href = None
+        self._class = ""
         self._text = []
 
     def handle_starttag(self, tag, attrs):
         if tag == "a":
-            self._href = dict(attrs).get("href", "")
+            attrs_d = dict(attrs)
+            self._href = attrs_d.get("href", "")
+            self._class = attrs_d.get("class", "")
             self._text = []
 
     def handle_data(self, data):
@@ -29,8 +34,13 @@ class LinkParser(HTMLParser):
 
     def handle_endtag(self, tag):
         if tag == "a" and self._href is not None:
-            self.links.append((" ".join(" ".join(self._text).split()), self._href))
+            label = " ".join(" ".join(self._text).split())
+            self.links.append((label, self._href))
+            self.anchors.append(
+                {"label": label, "href": self._href, "class": self._class}
+            )
             self._href = None
+            self._class = ""
             self._text = []
 
 
@@ -165,6 +175,116 @@ class SafeFoundationTests(unittest.TestCase):
         self.assertNotIn("30% apps", WATCHDOG)
         self.assertIn("Visit-only safety wording present", WATCHDOG)
         self.assertIn("This check does not authorize a Pages or DNS change.", WATCHDOG)
+
+    def test_homepage_does_not_mount_live_hours_widgets(self):
+        self.assertNotIn("data-hours-pill", HTML)
+        self.assertNotIn("status-text", HTML)
+        self.assertIn("status-pill is-schedule", HTML)
+        self.assertIn("Regular weekly hours are shown below", HTML)
+
+    def test_order_styled_homepage_ctas_are_not_google_destinations(self):
+        parser = LinkParser()
+        parser.feed(HTML)
+        order_buttons = [
+            a for a in parser.anchors if "btn-order" in a["class"].split()
+        ]
+        self.assertGreaterEqual(len(order_buttons), 3)
+        allowed = ("tel:+19056338388", "menu.html", "index.html")
+        for anchor in order_buttons:
+            self.assertTrue(
+                anchor["href"].startswith(allowed),
+                f"order-styled CTA routes away from visit-only actions: "
+                f"{anchor['label']!r} -> {anchor['href']!r}",
+            )
+
+    def test_content_security_policy_is_restrictive(self):
+        csp = re.search(
+            r'<meta http-equiv="Content-Security-Policy" content="([^"]+)"',
+            HTML,
+        )
+        self.assertIsNotNone(csp)
+        policy = csp.group(1)
+        for directive in (
+            "default-src 'self'",
+            "script-src 'self'",
+            "connect-src 'none'",
+            "object-src 'none'",
+            "base-uri 'self'",
+            "form-action 'none'",
+        ):
+            self.assertIn(directive, policy)
+        self.assertNotIn("*", policy)
+        self.assertIn('name="referrer" content="strict-origin-when-cross-origin"', HTML)
+        self.assertNotIn("<form", HTML.lower())
+        external_scripts = re.findall(r'<script[^>]+src="([^"]+)"', HTML)
+        self.assertEqual(external_scripts, ["js/site.js"])
+
+    def test_json_ld_omits_monday_and_prices(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        payload = json.loads(match.group(1))
+        days = []
+        for spec in payload["openingHoursSpecification"]:
+            value = spec["dayOfWeek"]
+            days.extend(value if isinstance(value, list) else [value])
+        self.assertNotIn("Monday", days)
+        self.assertIn("Tuesday", days)
+        self.assertIn("Sunday", days)
+        self.assertNotIn("priceRange", payload)
+        self.assertNotIn("acceptsReservations", payload)
+
+    def test_watchdog_keeps_analytics_and_order_destination_checks(self):
+        self.assertIn(
+            "posthog|google-analytics|assets.emergent.sh|session.?record",
+            WATCHDOG,
+        )
+        self.assertIn(
+            r"stripe|clover\.com|doordash|ubereats|skipthedishes",
+            WATCHDOG,
+        )
+        order_grep = re.search(
+            r"grep -Eiq '([^']+)' /tmp/p\.html",
+            WATCHDOG,
+        )
+        self.assertIsNotNone(order_grep)
+        self.assertNotIn("order online", order_grep.group(1).lower())
+
+    def test_watchdog_dns_observation_does_not_open_alerts(self):
+        self.assertNotIn("add it under repo Settings", WATCHDOG)
+        self.assertNotIn("time to set it as the GitHub Pages custom domain", WATCHDOG)
+        alert_lines = [
+            line for line in WATCHDOG.splitlines() if "alerts=" in line
+        ]
+        joined = "\n".join(alert_lines)
+        self.assertNotIn("$DOMAIN", joined)
+        self.assertNotIn("Pages", joined)
+        self.assertIn(
+            "No action is authorized by this check.",
+            WATCHDOG,
+        )
+
+    def test_deploy_headers_remain_fail_closed(self):
+        header_map = {
+            item["key"]: item["value"]
+            for item in VERCEL["headers"][0]["headers"]
+        }
+        self.assertEqual(
+            header_map["Access-Control-Allow-Origin"],
+            "https://dearsaigon.com",
+        )
+        self.assertNotEqual(header_map["Access-Control-Allow-Origin"], "*")
+        self.assertEqual(header_map["X-Content-Type-Options"], "nosniff")
+        self.assertEqual(header_map["X-Frame-Options"], "SAMEORIGIN")
+        self.assertEqual(
+            header_map["Referrer-Policy"],
+            "strict-origin-when-cross-origin",
+        )
+        self.assertIn("camera=()", header_map["Permissions-Policy"])
+        self.assertIn("microphone=()", header_map["Permissions-Policy"])
+        self.assertIn("geolocation=()", header_map["Permissions-Policy"])
 
 
 if __name__ == "__main__":
