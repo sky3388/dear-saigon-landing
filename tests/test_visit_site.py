@@ -18,8 +18,19 @@ class VisitOnlySiteTests(unittest.TestCase):
 
     def test_monday_closed(self):
         self.assertRegex(INDEX, r"Closed Mon")
+        self.assertIn("Closed Mondays", MENU)
+
+    def test_menu_does_not_claim_live_open_status(self):
         hours = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
-        self.assertIn("1: null", hours)
+        for banned in (
+            "data-hours-pill",
+            "Checking hours",
+            "Open now",
+            "Closed — opens",
+        ):
+            self.assertNotIn(banned, MENU, banned)
+            self.assertNotIn(banned, hours, banned)
+        self.assertIn("holiday hours may differ", MENU)
 
     def test_native_menu_exists(self):
         self.assertIn("menu.html", INDEX)

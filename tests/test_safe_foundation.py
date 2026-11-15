@@ -96,9 +96,16 @@ class SafeFoundationTests(unittest.TestCase):
             "always has current hours",
             "<h3>Current hours</h3>",
         )
+        menu = (ROOT / "menu.html").read_text(encoding="utf-8")
+        site_js = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
         for claim in unsafe_runtime_claims:
             self.assertNotIn(claim, HTML)
+            self.assertNotIn(claim, menu)
+            self.assertNotIn(claim, site_js)
+        self.assertNotIn("data-hours-pill", menu)
+        self.assertNotIn("data-hours-pill", site_js)
         self.assertIn("Regular schedule · holiday hours may differ", HTML)
+        self.assertIn("Regular schedule · holiday hours may differ", menu)
 
     def test_takeout_availability_is_not_inferred_from_restaurant_hours(self):
         self.assertNotIn("Takeout follows the regular restaurant hours", HTML)
