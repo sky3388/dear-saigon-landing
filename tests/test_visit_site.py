@@ -6,6 +6,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 INDEX = (ROOT / "index.html").read_text(encoding="utf-8")
 MENU = (ROOT / "menu.html").read_text(encoding="utf-8")
 DATA = (ROOT / "js" / "menu-data.js").read_text(encoding="utf-8")
+MENU_JS = (ROOT / "js" / "menu.js").read_text(encoding="utf-8")
 PAGES = INDEX + "\n" + MENU
 
 
@@ -73,6 +74,38 @@ class VisitOnlySiteTests(unittest.TestCase):
         css = (ROOT / "css" / "site.css").read_text(encoding="utf-8")
         self.assertIn(":focus-visible", css)
         self.assertIn("prefers-reduced-motion", css)
+
+    def test_menu_item_codes_are_unique_and_tags_are_scoped(self):
+        codes = re.findall(r'code:\s*"([^"]+)"', DATA)
+        self.assertGreaterEqual(len(codes), 40)
+        duplicates = [code for code in codes if codes.count(code) > 1]
+        self.assertEqual(duplicates, [], f"duplicate menu codes: {duplicates}")
+        for raw in re.findall(r"tags:\s*\[([^\]]*)\]", DATA):
+            tags = [part.strip().strip('\"') for part in raw.split(",") if part.strip()]
+            for tag in tags:
+                self.assertIn(tag, {"veg", "spicy"}, tag)
+
+    def test_menu_renderer_escapes_dynamic_html(self):
+        self.assertIn("function esc(s)", MENU_JS)
+        self.assertIn('"&": "&amp;"', MENU_JS)
+        self.assertIn('"<": "&lt;"', MENU_JS)
+        self.assertIn('">": "&gt;"', MENU_JS)
+        self.assertIn("'\"': \"&quot;\"", MENU_JS)
+        self.assertIn("\"'\": \"&#39;\"", MENU_JS)
+        for field in (
+            "esc(item.photo)",
+            "esc(item.name)",
+            "esc(item.code)",
+            "esc(item.note)",
+            "esc(cat.id)",
+            "esc(cat.label)",
+        ):
+            self.assertIn(field, MENU_JS, field)
+        self.assertIn("root.innerHTML = html", MENU_JS)
+        self.assertNotIn("eval(", MENU_JS)
+        self.assertNotIn("fetch(", MENU_JS)
+        self.assertNotIn("XMLHttpRequest", MENU_JS)
+        self.assertNotIn("document.write", MENU_JS)
 
 
 if __name__ == "__main__":

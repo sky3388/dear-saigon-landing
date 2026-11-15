@@ -286,6 +286,70 @@ class SafeFoundationTests(unittest.TestCase):
         self.assertIn("microphone=()", header_map["Permissions-Policy"])
         self.assertIn("geolocation=()", header_map["Permissions-Policy"])
 
+    def test_concept_phone_page_stays_isolated_and_non_transactional(self):
+        phone = (ROOT / "phone-ai.html").read_text(encoding="utf-8")
+        menu = (ROOT / "menu.html").read_text(encoding="utf-8")
+        self.assertNotIn("phone-ai.html", HTML)
+        self.assertNotIn("phone-ai.html", menu)
+        self.assertIn('name="robots" content="noindex,nofollow"', phone)
+        self.assertIn("Concept preview", phone)
+        self.assertIn("not a live product", phone.lower())
+        self.assertNotIn("<form", phone.lower())
+        self.assertNotIn("data-hours-pill", phone)
+        self.assertNotIn("Checking hours", phone)
+        self.assertNotIn("Open now", phone)
+        blob = phone.lower()
+        for banned in (
+            "stripe",
+            "checkout",
+            "add to cart",
+            "order online",
+            "clover.com",
+            "doordash",
+            "ubereats",
+            "skipthedishes",
+        ):
+            self.assertNotIn(banned, blob, banned)
+        parser = LinkParser()
+        parser.feed(phone)
+        allowed = (
+            "index.html",
+            "tel:+19056338388",
+            "https://maps.google.com/?q=2405+Fairview+St+Burlington",
+        )
+        for label, href in parser.links:
+            if not href:
+                continue
+            self.assertTrue(
+                href.startswith(allowed),
+                f"concept page leaks destination: {label!r} -> {href!r}",
+            )
+        self.assertEqual(re.findall(r'<script[^>]+src="([^"]+)"', phone), [])
+
+    def test_menu_order_styled_ctas_are_phone_only(self):
+        menu = (ROOT / "menu.html").read_text(encoding="utf-8")
+        parser = LinkParser()
+        parser.feed(menu)
+        order_buttons = [
+            a for a in parser.anchors if "btn-order" in a["class"].split()
+        ]
+        self.assertGreaterEqual(len(order_buttons), 2)
+        for anchor in order_buttons:
+            self.assertTrue(
+                anchor["href"].startswith("tel:+19056338388"),
+                f"menu order-styled CTA is not the restaurant phone: "
+                f"{anchor['label']!r} -> {anchor['href']!r}",
+            )
+
+    def test_pr_safety_workflow_runs_the_python_suite(self):
+        workflow = (ROOT / ".github" / "workflows" / "pr-safety.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("python3 -m unittest discover -s tests -v", workflow)
+        self.assertIn("contents: read", workflow)
+        self.assertIn("git diff --check", workflow)
+        self.assertNotIn("issues: write", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
