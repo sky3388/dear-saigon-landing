@@ -350,6 +350,30 @@ class SafeFoundationTests(unittest.TestCase):
         self.assertIn("git diff --check", workflow)
         self.assertNotIn("issues: write", workflow)
 
+    def test_homepage_does_not_load_menu_runtime(self):
+        self.assertNotIn("js/menu-data.js", HTML)
+        self.assertNotIn("js/menu.js", HTML)
+        self.assertEqual(re.findall(r'<script[^>]+src="([^"]+)"', HTML), ["js/site.js"])
+
+    def test_catering_cta_stays_phone_only(self):
+        parser = LinkParser()
+        parser.feed(HTML)
+        catering = [
+            a
+            for a in parser.anchors
+            if "catering" in a["label"].lower() or a["href"].endswith("#catering")
+        ]
+        self.assertGreaterEqual(len(catering), 1)
+        for anchor in catering:
+            if anchor["href"].endswith("#catering"):
+                continue
+            self.assertTrue(
+                anchor["href"].startswith("tel:+19056338388"),
+                f"catering CTA is not the restaurant phone: "
+                f"{anchor['label']!r} -> {anchor['href']!r}",
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
+

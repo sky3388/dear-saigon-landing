@@ -19,8 +19,7 @@ class VisitOnlySiteTests(unittest.TestCase):
 
     def test_monday_closed(self):
         self.assertRegex(INDEX, r"Closed Mon")
-        hours = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
-        self.assertIn("1: null", hours)
+        self.assertIn("Closed Mondays", MENU)
 
     def test_native_menu_exists(self):
         self.assertIn("menu.html", INDEX)
@@ -106,6 +105,54 @@ class VisitOnlySiteTests(unittest.TestCase):
         self.assertNotIn("fetch(", MENU_JS)
         self.assertNotIn("XMLHttpRequest", MENU_JS)
         self.assertNotIn("document.write", MENU_JS)
+
+    def test_menu_external_destinations_are_allowlisted(self):
+        hrefs = re.findall(r'<a\b[^>]*href="([^"]+)"', MENU)
+        allowed = (
+            "index.html",
+            "menu.html",
+            "dear-saigon-menu.pdf",
+            "tel:+19056338388",
+            "https://www.google.com/maps/dir/?api=1&destination=Dear+Saigon+",
+        )
+        self.assertGreaterEqual(len(hrefs), 6)
+        for href in hrefs:
+            if href.startswith("#"):
+                self.assertEqual(href, "#main", href)
+                continue
+            self.assertTrue(
+                href.startswith(allowed),
+                f"unapproved menu destination: {href!r}",
+            )
+
+    def test_menu_scripts_are_local_only(self):
+        self.assertEqual(
+            re.findall(r'<script[^>]+src="([^"]+)"', MENU),
+            ["js/menu-data.js", "js/menu.js", "js/site.js"],
+        )
+        self.assertNotIn("<form", MENU.lower())
+        self.assertIn("This page does not take payments", MENU)
+
+    def test_unpublished_promo_assets_are_not_linked(self):
+        phone = (ROOT / "phone-ai.html").read_text(encoding="utf-8")
+        public = INDEX + "\n" + MENU + "\n" + phone
+        for banned in ("ig/", "loyalty.png", "launch-promo.png"):
+            self.assertNotIn(banned, public, banned)
+
+    def test_menu_category_chips_match_data(self):
+        chips = re.findall(r'data-cat="([^"]+)"', MENU)
+        categories = re.findall(r'^\s*id:\s*"([^"]+)"', DATA, re.M)
+        self.assertEqual(chips[0], "all")
+        self.assertEqual(chips[1:], categories)
+        self.assertGreaterEqual(len(categories), 8)
+
+    def test_menu_data_has_no_checkout_fields(self):
+        self.assertNotIn("price:", DATA)
+        self.assertNotIn("href:", DATA)
+        self.assertNotIn("http://", DATA)
+        self.assertNotIn("https://", DATA)
+        for banned in ("stripe", "clover.com", "checkout", "doordash"):
+            self.assertNotIn(banned, DATA.lower(), banned)
 
 
 if __name__ == "__main__":
