@@ -373,6 +373,30 @@ class SafeFoundationTests(unittest.TestCase):
                 f"{anchor['label']!r} -> {anchor['href']!r}",
             )
 
+    def test_reveal_transition_delay_is_capped(self):
+        site_js = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
+        self.assertIn("Math.min(group, 6)", site_js)
+        self.assertIn("prefers-reduced-motion: reduce", site_js)
+        self.assertNotIn("Math.min(group, 12)", site_js)
+
+    def test_json_ld_public_contact_matches_visible_facts(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        payload = json.loads(match.group(1))
+        self.assertEqual(payload["telephone"], "+19056338388")
+        self.assertIn("tel:+19056338388", HTML)
+        self.assertEqual(
+            payload["address"]["streetAddress"],
+            "2405 Fairview St, Unit 3",
+        )
+        self.assertIn("2405 Fairview St, Unit 3", HTML)
+        self.assertTrue(str(payload["hasMenu"]).endswith("menu.html"))
+        self.assertIn("menu.html", HTML)
+
 
 if __name__ == "__main__":
     unittest.main()

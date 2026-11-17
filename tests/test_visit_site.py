@@ -154,6 +154,57 @@ class VisitOnlySiteTests(unittest.TestCase):
         for banned in ("stripe", "clover.com", "checkout", "doordash"):
             self.assertNotIn(banned, DATA.lower(), banned)
 
+    def test_menu_skip_link_targets_main(self):
+        self.assertIn('class="skip"', MENU)
+        self.assertIn('href="#main"', MENU)
+        self.assertIn('id="main"', MENU)
+
+    def test_menu_allergen_disclaimer_is_present(self):
+        self.assertIn("Ask staff about allergens", MENU)
+        self.assertIn("not a full ingredient list", MENU)
+        self.assertIn("staff confirm availability", MENU)
+
+    def test_menu_search_uses_code_name_and_note(self):
+        self.assertIn(
+            'item.code + " " + item.name + " " + (item.note || "")',
+            MENU_JS,
+        )
+        self.assertIn("hay.indexOf(state.q) !== -1", MENU_JS)
+        self.assertIn('state.q = search.value.trim().toLowerCase()', MENU_JS)
+
+    def test_menu_hash_only_selects_known_category_ids(self):
+        self.assertIn(
+            "cats.some(function (c) { return c.id === hash; })",
+            MENU_JS,
+        )
+        self.assertIn("state.cat = hash", MENU_JS)
+
+    def test_menu_empty_state_is_non_transactional(self):
+        self.assertIn("No dishes match that search", MENU_JS)
+        self.assertIn("call us and we will help you choose", MENU_JS)
+        blob = MENU_JS.lower()
+        for banned in ("stripe", "checkout", "add to cart", "order online"):
+            self.assertNotIn(banned, blob, banned)
+
+    def test_menu_renderer_does_not_read_price_or_href_fields(self):
+        self.assertNotIn("item.price", MENU_JS)
+        self.assertNotIn("item.href", MENU_JS)
+        self.assertNotIn("cat.href", MENU_JS)
+        self.assertNotIn("window.location.assign", MENU_JS)
+        self.assertNotIn("window.open", MENU_JS)
+
+    def test_menu_items_are_well_formed(self):
+        items = re.findall(
+            r'\{ code:\s*"([^"]+)",\s*name:\s*"([^"]+)"',
+            DATA,
+        )
+        self.assertGreaterEqual(len(items), 40)
+        self.assertEqual(len({code for code, _ in items}), len(items))
+        for code, name in items:
+            self.assertTrue(code, "empty menu code")
+            self.assertTrue(name, "empty menu name")
+            self.assertIsNone(re.search(r"\$\d", name), name)
+
 
 if __name__ == "__main__":
     unittest.main()
