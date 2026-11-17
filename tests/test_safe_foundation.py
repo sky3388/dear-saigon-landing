@@ -7,6 +7,8 @@ import json
 
 ROOT = Path(__file__).resolve().parents[1]
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
+MENU = (ROOT / "menu.html").read_text(encoding="utf-8")
+PAGES = HTML + "\n" + MENU
 CSS = (ROOT / "css" / "site.css").read_text(encoding="utf-8")
 WATCHDOG = (ROOT / ".github" / "workflows" / "watchdog.yml").read_text(encoding="utf-8")
 
@@ -95,10 +97,12 @@ class SafeFoundationTests(unittest.TestCase):
             "Closed — opens",
             "always has current hours",
             "<h3>Current hours</h3>",
+            "data-hours-pill",
         )
         for claim in unsafe_runtime_claims:
-            self.assertNotIn(claim, HTML)
+            self.assertNotIn(claim, PAGES)
         self.assertIn("Regular schedule · holiday hours may differ", HTML)
+        self.assertIn("Regular schedule · holiday hours may differ", MENU)
 
     def test_takeout_availability_is_not_inferred_from_restaurant_hours(self):
         self.assertNotIn("Takeout follows the regular restaurant hours", HTML)
