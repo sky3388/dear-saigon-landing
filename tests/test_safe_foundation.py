@@ -397,6 +397,105 @@ class SafeFoundationTests(unittest.TestCase):
         self.assertTrue(str(payload["hasMenu"]).endswith("menu.html"))
         self.assertIn("menu.html", HTML)
 
+    def test_json_ld_hours_match_visible_schedule(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        payload = json.loads(match.group(1))
+        by_day = {}
+        for spec in payload["openingHoursSpecification"]:
+            days = spec["dayOfWeek"]
+            if isinstance(days, str):
+                days = [days]
+            for day in days:
+                by_day[day] = (spec["opens"], spec["closes"])
+        self.assertNotIn("Monday", by_day)
+        self.assertEqual(by_day["Tuesday"], ("11:00", "21:00"))
+        self.assertEqual(by_day["Wednesday"], ("11:00", "21:00"))
+        self.assertEqual(by_day["Thursday"], ("11:00", "21:00"))
+        self.assertEqual(by_day["Sunday"], ("11:00", "21:00"))
+        self.assertEqual(by_day["Friday"], ("11:00", "22:00"))
+        self.assertEqual(by_day["Saturday"], ("11:00", "22:00"))
+        self.assertIn("Tue–Thu 11am–9pm", HTML)
+        self.assertIn("Fri–Sat 11am–10pm", HTML)
+        self.assertIn("Sun 11am–9pm", HTML)
+
+    def test_deploy_config_has_no_order_redirects(self):
+        self.assertNotIn("redirects", VERCEL)
+        self.assertNotIn("rewrites", VERCEL)
+        blob = json.dumps(VERCEL).lower()
+        for banned in (
+            "stripe",
+            "clover",
+            "doordash",
+            "ubereats",
+            "skipthedishes",
+            "checkout",
+        ):
+            self.assertNotIn(banned, blob, banned)
+
+    def test_new_windows_use_noopener(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        found_blank = 0
+        for name, html in pages.items():
+            self.assertIsNone(
+                re.search(r"\son[a-z]+\s*=", html, re.I),
+                f"{name} has an inline event handler",
+            )
+            for tag in re.findall(r"<a\b[^>]*>", html, re.I):
+                self.assertNotIn("javascript:", tag.lower())
+                if re.search(r'target\s*=\s*["\']_blank["\']', tag, re.I):
+                    found_blank += 1
+                    rel = re.search(r'rel\s*=\s*["\']([^"\']+)["\']', tag, re.I)
+                    self.assertIsNotNone(rel, f"{name} blank target missing rel: {tag}")
+                    self.assertIn("noopener", rel.group(1).split(), tag)
+        self.assertGreaterEqual(found_blank, 8)
+
+    def test_watchdog_observes_github_pages_landing(self):
+        self.assertIn(
+            'SITE="https://skywalker8888.github.io/dear-saigon-landing/"',
+            WATCHDOG,
+        )
+        self.assertIsNone(
+            re.search(
+                r'SITE="https?://[^"]*(stripe|clover|doordash|ubereats|skipthedishes)',
+                WATCHDOG,
+                re.I,
+            )
+        )
+
+    def test_runtime_js_has_no_network_or_storage_side_channels(self):
+        site_js = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
+        menu_js = (ROOT / "js" / "menu.js").read_text(encoding="utf-8")
+        self.assertNotIn("innerHTML", site_js)
+        for blob in (site_js, menu_js):
+            for banned in (
+                "fetch(",
+                "XMLHttpRequest",
+                "WebSocket",
+                "navigator.sendBeacon",
+                "document.cookie",
+                "localStorage",
+                "sessionStorage",
+                "eval(",
+                "new Function",
+            ):
+                self.assertNotIn(banned, blob, banned)
+
+    def test_responsive_image_candidates_exist(self):
+        for source in re.findall(r'\bsrcset="([^"]+)"', HTML):
+            for candidate in source.split(","):
+                path = candidate.strip().split()[0]
+                if path.startswith(("http://", "https://", "data:")):
+                    continue
+                self.assertTrue((ROOT / path).is_file(), f"missing srcset image: {path}")
+
 
 if __name__ == "__main__":
     unittest.main()

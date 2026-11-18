@@ -205,6 +205,39 @@ class VisitOnlySiteTests(unittest.TestCase):
             self.assertTrue(name, "empty menu name")
             self.assertIsNone(re.search(r"\$\d", name), name)
 
+    def test_menu_items_all_have_scoped_tags_arrays(self):
+        codes = re.findall(r'code:\s*"([^"]+)"', DATA)
+        tags_arrays = re.findall(r"tags:\s*\[", DATA)
+        self.assertEqual(len(codes), len(tags_arrays))
+        self.assertGreaterEqual(len(codes), 40)
+
+    def test_menu_veg_filter_uses_veg_tag(self):
+        self.assertIn(
+            'if (state.veg && item.tags.indexOf("veg") === -1) return false;',
+            MENU_JS,
+        )
+        self.assertIn("state.veg = !state.veg", MENU_JS)
+        self.assertIn(
+            'veg.setAttribute("aria-pressed", state.veg ? "true" : "false")',
+            MENU_JS,
+        )
+        self.assertIn('e.target.closest("[data-cat]")', MENU_JS)
+        self.assertIn('state.cat = btn.getAttribute("data-cat")', MENU_JS)
+        self.assertIn("if (!root || !window.DEAR_SAIGON_MENU) return;", MENU_JS)
+
+    def test_menu_category_ids_are_safe_and_unique(self):
+        categories = re.findall(r'^\s*id:\s*"([^"]+)"', DATA, re.M)
+        self.assertGreaterEqual(len(categories), 8)
+        self.assertEqual(len(categories), len(set(categories)))
+        for cat_id in categories:
+            self.assertRegex(cat_id, r"^[a-z]+$", cat_id)
+
+    def test_menu_item_codes_are_html_id_safe(self):
+        codes = re.findall(r'code:\s*"([^"]+)"', DATA)
+        self.assertIn("item.code.toLowerCase()", MENU_JS)
+        for code in codes:
+            self.assertRegex(code, r"^[A-Z][A-Z0-9]*\d+$", code)
+
 
 if __name__ == "__main__":
     unittest.main()
