@@ -496,6 +496,135 @@ class SafeFoundationTests(unittest.TestCase):
                     continue
                 self.assertTrue((ROOT / path).is_file(), f"missing srcset image: {path}")
 
+    def test_all_tel_links_are_the_restaurant_number(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        total = 0
+        for name, html in pages.items():
+            hrefs = re.findall(r'href="(tel:[^"]+)"', html)
+            self.assertGreaterEqual(len(hrefs), 1, name)
+            total += len(hrefs)
+            for href in hrefs:
+                self.assertEqual(
+                    href,
+                    "tel:+19056338388",
+                    f"{name} publishes a different phone destination: {href!r}",
+                )
+        self.assertGreaterEqual(total, 10)
+
+    def test_json_ld_omits_ratings_reviews_and_offers(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        payload = json.loads(match.group(1))
+        self.assertEqual(payload["@type"], "Restaurant")
+        for banned in (
+            "aggregateRating",
+            "review",
+            "reviews",
+            "offers",
+            "hasOfferCatalog",
+            "potentialAction",
+            "paymentAccepted",
+            "starRating",
+        ):
+            self.assertNotIn(banned, payload, banned)
+        self.assertTrue(
+            payload["url"].startswith(
+                "https://skywalker8888.github.io/dear-saigon-landing/"
+            )
+        )
+        self.assertTrue(
+            payload["hasMenu"].startswith(
+                "https://skywalker8888.github.io/dear-saigon-landing/"
+            )
+        )
+        self.assertTrue(
+            payload["image"].startswith(
+                "https://skywalker8888.github.io/dear-saigon-landing/assets/"
+            )
+        )
+        self.assertEqual(payload["address"]["postalCode"], "L7R 2E4")
+        self.assertEqual(payload["address"]["addressCountry"], "CA")
+
+    def test_public_canonical_urls_stay_on_github_pages(self):
+        pages = {
+            "index.html": (
+                HTML,
+                "https://skywalker8888.github.io/dear-saigon-landing/",
+            ),
+            "menu.html": (
+                (ROOT / "menu.html").read_text(encoding="utf-8"),
+                "https://skywalker8888.github.io/dear-saigon-landing/menu.html",
+            ),
+        }
+        for name, (html, expected) in pages.items():
+            canonical = re.search(r'<link rel="canonical" href="([^"]+)"', html)
+            og_url = re.search(r'<meta property="og:url" content="([^"]+)"', html)
+            self.assertIsNotNone(canonical, name)
+            self.assertIsNotNone(og_url, name)
+            self.assertEqual(canonical.group(1), expected, name)
+            self.assertEqual(og_url.group(1), expected, name)
+            for url in (canonical.group(1), og_url.group(1)):
+                for banned in (
+                    "stripe",
+                    "clover",
+                    "doordash",
+                    "ubereats",
+                    "skipthedishes",
+                    "checkout",
+                ):
+                    self.assertNotIn(banned, url.lower(), banned)
+
+    def test_public_pages_have_no_embedded_browsing_surfaces(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        for name, html in pages.items():
+            lower = html.lower()
+            for tag in ("<iframe", "<object", "<embed", "<applet"):
+                self.assertNotIn(tag, lower, f"{name} embeds {tag}")
+            self.assertNotIn("navigator.serviceworker", lower, name)
+            self.assertNotIn("manifest.json", lower, name)
+            for tracker in (
+                "gtag(",
+                "googletagmanager",
+                "facebook.net",
+                "cdn.posthog",
+                "assets.emergent.sh",
+            ):
+                self.assertNotIn(tracker, lower, f"{name} loads {tracker}")
+
+    def test_og_images_exist_locally(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+        }
+        prefix = "https://skywalker8888.github.io/dear-saigon-landing/"
+        found = 0
+        for name, html in pages.items():
+            urls = re.findall(
+                r'<meta (?:property|name)="(?:og:image|twitter:image)" content="([^"]+)"',
+                html,
+            )
+            self.assertGreaterEqual(len(urls), 1, name)
+            for url in urls:
+                found += 1
+                self.assertTrue(url.startswith(prefix), f"{name} og image: {url}")
+                local = url[len(prefix) :]
+                self.assertTrue(
+                    (ROOT / local).is_file(),
+                    f"{name} og image missing on disk: {local}",
+                )
+        self.assertGreaterEqual(found, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -238,6 +238,56 @@ class VisitOnlySiteTests(unittest.TestCase):
         for code in codes:
             self.assertRegex(code, r"^[A-Z][A-Z0-9]*\d+$", code)
 
+    def test_printable_menu_pdf_exists(self):
+        self.assertTrue((ROOT / "dear-saigon-menu.pdf").is_file())
+        self.assertIn('href="dear-saigon-menu.pdf"', MENU)
+        self.assertIsNone(
+            re.search(
+                r"""href=["']https?://[^"']*dear-saigon-menu\.pdf""",
+                MENU,
+            )
+        )
+
+    def test_menu_photos_are_same_origin_webp(self):
+        photos = re.findall(r'photo:\s*"([^"]+)"', DATA)
+        self.assertGreaterEqual(len(photos), 10)
+        for path in photos:
+            self.assertRegex(path, r"^assets/[a-z0-9./-]+\.webp$", path)
+            self.assertNotIn("..", path)
+            self.assertTrue((ROOT / path).is_file(), path)
+
+    def test_menu_hash_is_not_interpolated_into_html(self):
+        self.assertNotIn("+ hash", MENU_JS)
+        self.assertNotIn("hash +", MENU_JS)
+        self.assertNotIn("${hash}", MENU_JS)
+        self.assertNotIn("esc(hash)", MENU_JS)
+        self.assertIn("state.cat = hash", MENU_JS)
+        self.assertIn("c.id === hash", MENU_JS)
+
+    def test_menu_controls_are_non_submitting_buttons(self):
+        self.assertIn('<button class="nav-toggle" type="button"', MENU)
+        self.assertIn('<button type="button" class="chip" id="vegFilter"', MENU)
+        self.assertIn('id="menuSearch" class="menu-search" type="search"', MENU)
+        self.assertNotIn("formaction", MENU.lower())
+        self.assertNotIn('type="submit"', MENU.lower())
+        chip_buttons = re.findall(r"<button\b[^>]*data-cat=", MENU)
+        self.assertGreaterEqual(len(chip_buttons), 9)
+        for tag in chip_buttons:
+            self.assertIn('type="button"', tag)
+
+    def test_watchdog_domain_is_not_an_order_destination(self):
+        watchdog = (ROOT / ".github" / "workflows" / "watchdog.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('DOMAIN="dearsaigonburlington.com"', watchdog)
+        self.assertIsNone(
+            re.search(
+                r'DOMAIN="[^"]*(stripe|clover|doordash|ubereats|skipthedishes)',
+                watchdog,
+                re.I,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
