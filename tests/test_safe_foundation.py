@@ -625,6 +625,93 @@ class SafeFoundationTests(unittest.TestCase):
                 )
         self.assertGreaterEqual(found, 3)
 
+    def test_json_ld_identity_stays_burlington_vietnamese(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        payload = json.loads(match.group(1))
+        self.assertEqual(payload["@context"], "https://schema.org")
+        self.assertEqual(payload["servesCuisine"], "Vietnamese")
+        self.assertEqual(payload["address"]["@type"], "PostalAddress")
+        self.assertEqual(payload["address"]["addressLocality"], "Burlington")
+        self.assertEqual(payload["address"]["addressRegion"], "ON")
+        for banned in ("sameAs", "email", "geo", "menu", "hasMap"):
+            self.assertNotIn(banned, payload, banned)
+
+    def test_pages_have_no_hijack_protocols_or_base_redirect(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        for name, html in pages.items():
+            lower = html.lower()
+            self.assertNotIn("<base", lower, name)
+            self.assertNotIn('http-equiv="refresh"', lower, name)
+            for protocol in ("mailto:", "sms:", "whatsapp:", "intent:", "ftp://"):
+                self.assertNotIn(protocol, lower, f"{name} uses {protocol}")
+            self.assertIsNone(
+                re.search(r"""href=[\"']http://""", html, re.I),
+                f"{name} has a plaintext http link",
+            )
+
+    def test_deploy_config_is_headers_only(self):
+        self.assertEqual(list(VERCEL.keys()), ["headers"])
+        self.assertEqual(len(VERCEL["headers"]), 1)
+        self.assertEqual(VERCEL["headers"][0]["source"], "/(.*)")
+        blob = json.dumps(VERCEL).lower()
+        for banned in ("functions", "crons", "env", "builds", "routes"):
+            self.assertNotIn(banned, blob, banned)
+
+    def test_csp_blocks_remote_scripts_images_and_eval(self):
+        csp = re.search(
+            r'<meta http-equiv="Content-Security-Policy" content="([^"]+)"',
+            HTML,
+        )
+        self.assertIsNotNone(csp)
+        policy = csp.group(1)
+        self.assertIn("img-src 'self' data:", policy)
+        self.assertNotIn("unsafe-eval", policy)
+        self.assertNotIn("cdn.jsdelivr", policy.lower())
+        self.assertNotIn("unpkg.com", policy.lower())
+        script_src = re.search(r"script-src\s+([^;]+)", policy)
+        self.assertIsNotNone(script_src)
+        self.assertEqual(script_src.group(1).strip(), "'self'")
+        img_src = re.search(r"img-src\s+([^;]+)", policy)
+        self.assertNotIn("https:", img_src.group(1))
+        self.assertNotIn("http:", img_src.group(1))
+
+    def test_watchdog_fetch_is_read_only_pages_get(self):
+        self.assertIn("contents: read", WATCHDOG)
+        self.assertNotIn("contents: write", WATCHDOG)
+        self.assertNotIn("pull-requests: write", WATCHDOG)
+        self.assertIn('curl -s -o /tmp/p.html -w "%{http_code}" -L "$SITE"', WATCHDOG)
+        self.assertNotIn("-X POST", WATCHDOG)
+        self.assertNotIn("-X PUT", WATCHDOG)
+        self.assertNotIn("--data", WATCHDOG)
+        self.assertNotIn("https://$DOMAIN", WATCHDOG)
+        self.assertNotIn("http://$DOMAIN", WATCHDOG)
+        self.assertIn("socket.gethostbyname('$DOMAIN')", WATCHDOG)
+
+    def test_runtime_js_does_not_navigate_or_open_windows(self):
+        site_js = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
+        menu_js = (ROOT / "js" / "menu.js").read_text(encoding="utf-8")
+        self.assertIn("location.hash", menu_js)
+        for blob in (site_js, menu_js):
+            for banned in (
+                "location.href",
+                "location.assign",
+                "location.replace",
+                "location.reload",
+                "window.open",
+                "document.location",
+                "history.pushState",
+                "history.replaceState",
+            ):
+                self.assertNotIn(banned, blob, banned)
+
 
 if __name__ == "__main__":
     unittest.main()

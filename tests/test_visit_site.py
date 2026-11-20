@@ -288,6 +288,47 @@ class VisitOnlySiteTests(unittest.TestCase):
             )
         )
 
+    def test_menu_tag_labels_are_hardcoded_not_interpolated(self):
+        self.assertIn(
+            '<span class="tag tag-veg">Vegetarian</span>',
+            MENU_JS,
+        )
+        self.assertIn(
+            '<span class="tag tag-spicy">Spicy</span>',
+            MENU_JS,
+        )
+        self.assertNotIn("esc(item.tags", MENU_JS)
+        self.assertNotIn("item.tags.join", MENU_JS)
+        self.assertNotIn("item.tags.map", MENU_JS)
+        self.assertIn('item.tags.indexOf("veg")', MENU_JS)
+        self.assertIn('item.tags.indexOf("spicy")', MENU_JS)
+
+    def test_menu_text_fields_have_no_urls_or_prices(self):
+        notes = re.findall(r'note:\s*"([^"]*)"', DATA)
+        names = re.findall(r'name:\s*"([^"]*)"', DATA)
+        self.assertGreaterEqual(len(notes), 20)
+        self.assertGreaterEqual(len(names), 40)
+        for text in notes + names:
+            self.assertIsNone(re.search(r"\$\s*\d", text), text)
+            lower = text.lower()
+            self.assertNotIn("http://", lower, text)
+            self.assertNotIn("https://", lower, text)
+            self.assertNotIn("tel:", lower, text)
+
+    def test_menu_app_starts_empty(self):
+        match = re.search(r'<div id="menuApp">(.*?)</div>', MENU, re.DOTALL)
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1).strip(), "")
+
+    def test_homepage_nav_toggle_is_a_non_submitting_button(self):
+        self.assertIn(
+            '<button class="nav-toggle" type="button" aria-expanded="false"',
+            INDEX,
+        )
+        self.assertNotIn('type="submit"', INDEX.lower())
+        self.assertNotIn("formaction", INDEX.lower())
+        self.assertNotIn("<form", INDEX.lower())
+
 
 if __name__ == "__main__":
     unittest.main()
