@@ -712,7 +712,121 @@ class SafeFoundationTests(unittest.TestCase):
             ):
                 self.assertNotIn(banned, blob, banned)
 
+    def test_public_pages_do_not_load_speed_insights(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        for name, html in pages.items():
+            blob = html.lower()
+            for banned in (
+                "/_vercel/speed-insights",
+                "window.si",
+                "window.siq",
+                "@vercel/speed-insights",
+                "va.vercel-scripts.com",
+            ):
+                self.assertNotIn(banned, blob, f"{name} loads {banned}")
+
+    def test_watchdog_does_not_checkout_or_mutate_git(self):
+        self.assertNotIn("actions/checkout", WATCHDOG)
+        self.assertNotIn("git push", WATCHDOG)
+        self.assertNotIn("git commit", WATCHDOG)
+        self.assertNotIn("git config", WATCHDOG)
+        self.assertNotIn("gh pr ", WATCHDOG)
+        self.assertNotIn("gh repo", WATCHDOG)
+        self.assertIn("gh issue list", WATCHDOG)
+        self.assertIn("gh issue comment", WATCHDOG)
+        self.assertIn("gh issue create", WATCHDOG)
+        self.assertIn("issues: write", WATCHDOG)
+
+    def test_no_package_manifest_or_serverless_config(self):
+        for name in (
+            "package.json",
+            "package-lock.json",
+            "netlify.toml",
+            "wrangler.toml",
+            "firebase.json",
+            "Dockerfile",
+            "CNAME",
+            "amplify.yml",
+            "_redirects",
+            "robots.txt",
+        ):
+            self.assertFalse(
+                (ROOT / name).exists(),
+                f"{name} would add a deploy or package surface",
+            )
+
+    def test_remote_resource_hints_are_google_fonts_only(self):
+        pages = {
+            "index.html": HTML,
+            "menu.html": (ROOT / "menu.html").read_text(encoding="utf-8"),
+            "phone-ai.html": (ROOT / "phone-ai.html").read_text(encoding="utf-8"),
+        }
+        allowed_preconnect = {
+            "https://fonts.googleapis.com",
+            "https://fonts.gstatic.com",
+        }
+        for name, html in pages.items():
+            for tag in re.findall(r"<link\b[^>]*>", html, re.I):
+                href_match = re.search(r'href="([^"]+)"', tag)
+                self.assertIsNotNone(href_match, tag)
+                href = href_match.group(1)
+                lower = tag.lower()
+                if "preconnect" in lower:
+                    self.assertIn(href, allowed_preconnect, f"{name} preconnect {href}")
+                if "stylesheet" in lower:
+                    self.assertTrue(
+                        href == "css/site.css"
+                        or href.startswith("https://fonts.googleapis.com/css2?"),
+                        f"{name} stylesheet {href}",
+                    )
+        self.assertNotIn("url(http", CSS.lower())
+        self.assertNotIn("url(https", CSS.lower())
+        self.assertNotIn("@import", CSS.lower())
+
+    def test_runtime_js_has_no_workers_or_dynamic_imports(self):
+        site_js = (ROOT / "js" / "site.js").read_text(encoding="utf-8")
+        menu_js = (ROOT / "js" / "menu.js").read_text(encoding="utf-8")
+        data_js = (ROOT / "js" / "menu-data.js").read_text(encoding="utf-8")
+        for blob in (site_js, menu_js, data_js):
+            for banned in (
+                "Worker(",
+                "SharedWorker",
+                "ServiceWorker",
+                "importScripts",
+                "postMessage",
+                "import(",
+                "indexedDB",
+                "caches.open",
+                "navigator.geolocation",
+            ):
+                self.assertNotIn(banned, blob, banned)
+
+    def test_json_ld_serialized_omits_commerce_actions(self):
+        match = re.search(
+            r'<script type="application/ld\+json">\s*(\{.*?\})\s*</script>',
+            HTML,
+            re.DOTALL,
+        )
+        payload = json.loads(match.group(1))
+        blob = json.dumps(payload).lower()
+        for banned in (
+            "orderaction",
+            "reserveaction",
+            "buyaction",
+            "payaction",
+            "quoteaction",
+            "rsvpaction",
+            "entrypoint",
+            "targeturl",
+        ):
+            self.assertNotIn(banned, blob, banned)
+
 
 if __name__ == "__main__":
     unittest.main()
+
 

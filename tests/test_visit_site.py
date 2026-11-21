@@ -329,6 +329,48 @@ class VisitOnlySiteTests(unittest.TestCase):
         self.assertNotIn("formaction", INDEX.lower())
         self.assertNotIn("<form", INDEX.lower())
 
+    def test_menu_search_query_is_not_interpolated_into_html(self):
+        self.assertIn("state.q = search.value.trim().toLowerCase()", MENU_JS)
+        self.assertIn("hay.indexOf(state.q) !== -1", MENU_JS)
+        self.assertNotIn("+ state.q", MENU_JS)
+        self.assertNotIn("state.q +", MENU_JS)
+        self.assertNotIn("${state.q}", MENU_JS)
+        self.assertNotIn("esc(state.q)", MENU_JS)
+        self.assertNotIn("search.value +", MENU_JS)
+        self.assertNotIn("+ search.value", MENU_JS)
+
+    def test_menu_data_is_inline_not_fetched(self):
+        self.assertTrue(DATA.lstrip().startswith("window.DEAR_SAIGON_MENU = ["))
+        self.assertTrue(DATA.rstrip().endswith("];"))
+        for banned in (
+            "fetch(",
+            "XMLHttpRequest",
+            "import ",
+            "require(",
+            "new Function",
+            "eval(",
+        ):
+            self.assertNotIn(banned, DATA, banned)
+
+    def test_menu_and_concept_pages_have_no_json_ld(self):
+        phone = (ROOT / "phone-ai.html").read_text(encoding="utf-8")
+        self.assertNotIn("application/ld+json", MENU)
+        self.assertNotIn("application/ld+json", phone)
+        self.assertNotIn("openingHoursSpecification", MENU)
+        self.assertNotIn("hasOfferCatalog", MENU)
+
+    def test_pr_safety_does_not_deploy_or_use_secrets(self):
+        workflow = (ROOT / ".github" / "workflows" / "pr-safety.yml").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("secrets.", workflow)
+        self.assertNotIn("vercel", workflow.lower())
+        self.assertNotIn("gh release", workflow)
+        self.assertNotIn("docker", workflow.lower())
+        self.assertNotIn("permissions: write-all", workflow)
+        self.assertIn("uses: actions/checkout@v7", workflow)
+
 
 if __name__ == "__main__":
     unittest.main()
+
